@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Gerencial - Alpha Secure</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="banco_dados.js" onerror="var BANCO_DE_DADOS = null;"></script>
+  <style>
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:3px}
+    .tab-c{display:none}.tab-c.active{display:block}.clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  </style>
+</head>
+<body class="bg-[#EAEFF5] min-h-screen text-slate-900 font-sans antialiased flex flex-col justify-between">
+  <div>
+    <nav class="bg-[#1C3A6C] text-white shadow-xl sticky top-0 z-40 border-b-4 border-[#EA5D0B]">
+      <div class="max-w-[1440px] mx-auto px-4 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-5">
+          <div class="bg-[#EA5D0B] text-white px-5 py-2.5 rounded-xl font-black text-3xl tracking-tighter select-none shadow-[0_0_15px_rgba(234,93,11,0.4)] border border-orange-400">
+            a<span class="text-white/60 mx-1 font-light">|</span>s
+          </div>
+          <div class="flex flex-col">
+            <h1 class="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">Painel de Atendimentos <span class="text-[10px] uppercase font-black px-2.5 py-1 rounded bg-red-600 text-white shadow-md border border-red-500 animate-pulse tracking-widest">Ao Vivo</span></h1>
+            <p class="text-sm text-blue-200 mt-0.5 tracking-wide font-medium">Grupo Alpha Secure • Gestão e Controlo Operacional</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <button onclick="document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()" class="p-3 bg-[#152B50] hover:bg-[#0E1F3D] text-slate-200 hover:text-white rounded-xl border border-blue-800 transition shadow-inner">⛶</button>
+          <div class="flex items-center gap-2 bg-[#152B50] p-1.5 px-3 rounded-xl border border-blue-800 shadow-inner">
+            <span class="text-xs font-black text-blue-300 tracking-wider">📅 BASE:</span>
+            <select id="selData" onchange="mudarData(this.value)" class="bg-[#1C3A6C] text-white text-sm font-bold rounded-lg border border-blue-700 py-1.5 px-3 outline-none cursor-pointer hover:bg-[#234885] transition"></select>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="max-w-[1440px] mx-auto px-4 lg:px-8 py-5">
+      <details class="mb-5 bg-white rounded-2xl shadow-sm border border-slate-300 group overflow-hidden">
+        <summary class="cursor-pointer font-black text-[#1C3A6C] p-3.5 px-5 flex items-center justify-between text-sm select-none hover:bg-slate-50">
+          <span class="flex items-center gap-2">⚙️ Alimentação de Dados e Sincronização</span>
+          <span class="text-xs text-white font-bold bg-[#EA5D0B] px-3 py-1 rounded-full group-open:hidden shadow">Atualizar Base</span>
+        </summary>
+        <div class="p-5 border-t border-slate-200 grid grid-cols-1 lg:grid-cols-2 gap-5 bg-slate-50/50">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+            <div><h3 class="text-sm font-black text-[#1C3A6C] mb-1">📂 Importação da Planilha</h3><p class="text-xs text-slate-600 mb-3">Priorização ativa da coluna <b>Data cadastro tarefa</b>.</p></div>
+            <div class="flex gap-2">
+              <input type="file" id="arqExc" accept=".xlsx, .xls" class="hidden" onchange="impExc(event)">
+              <button onclick="q('arqExc').click()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm">1. Importar Planilha</button>
+              <button onclick="gerarJSON()" class="flex-1 py-2 bg-[#EA5D0B] hover:bg-[#D55208] text-white rounded-lg text-xs font-bold shadow-sm">2. Gerar banco_dados.js</button>
+            </div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <h3 class="text-sm font-black text-[#1C3A6C] mb-1">🔄 Conexão Direta Auvo API</h3>
+            <div class="grid grid-cols-2 gap-2 mb-2"><input type="text" id="auvoKey" placeholder="AppKey" class="text-xs p-2 border border-slate-300 rounded-lg outline-none"><input type="text" id="auvoTok" placeholder="Token" class="text-xs p-2 border border-slate-300 rounded-lg outline-none"></div>
+            <button onclick="syncAuvo()" class="w-full py-2 bg-[#1C3A6C] hover:bg-[#152B50] text-white rounded-lg text-xs font-bold shadow-sm">Sincronizar Direto</button><span id="msgAuvo" class="text-xs font-bold text-center mt-1 block hidden"></span>
+          </div>
+        </div>
+      </details>
+
+      <div class="bg-white p-3 px-4 rounded-2xl border border-slate-300 shadow-sm mb-5 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs font-black text-[#1C3A6C] uppercase mr-1">🗓️ Período:</span>
+          <button onclick="setData('todas', this)" class="b-dt px-3 py-1 rounded-xl text-xs font-black bg-[#1C3A6C] text-white transition">Todas as Datas</button>
+          <button onclick="setData('hoje', this)" class="b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">⚡ Hoje</button>
+          <button onclick="setData('ontem', this)" class="b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Ontem</button>
+          <button onclick="setData('7dias', this)" class="b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Últimos 7 dias</button>
+          <button onclick="setData('mes', this)" class="b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Este Mês</button>
+        </div>
+        <div class="flex items-center gap-1.5"><span class="text-xs text-slate-500 hidden sm:inline font-medium">Data exata:</span><input type="date" id="dtCustom" onchange="setDataCustom(this.value)" class="text-xs font-bold p-1 px-2 border border-slate-300 rounded-xl bg-slate-50 outline-none"></div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row bg-slate-200/90 p-1 rounded-2xl mb-5 gap-1 shadow-inner border border-slate-300" id="tabs">
+        <button onclick="tab('dash', this)" class="tbtn flex-1 py-2.5 px-4 text-sm font-black text-[#1C3A6C] bg-white shadow-sm rounded-xl border-b-2 border-[#EA5D0B]">📊 Dashboard Geral</button>
+        <button onclick="tab('os', this)" class="tbtn flex-1 py-2.5 px-4 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl">📋 Ordens de Serviço</button>
+        <button onclick="tab('prio', this)" class="tbtn flex-1 py-2.5 px-4 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl">🚨 Prioridades & SLA (>2d)</button>
+        <button onclick="tab('rel', this)" class="tbtn flex-1 py-2.5 px-4 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl">📝 Fechamento Diário</button>
+      </div>
+
+      <div id="dash" class="tab-c active">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+          <div class="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start"><div><span class="text-[11px] font-black uppercase text-slate-500">Volume Total</span><div class="text-2xl font-black text-[#1C3A6C] mt-0.5" id="kTot">0</div></div><div class="p-2 bg-blue-50 text-[#1C3A6C] rounded-lg">📋</div></div>
+            <div class="mt-3 pt-2 border-t border-slate-100 flex justify-between text-[11px] font-semibold text-slate-500"><span id="lbPeriodo">Período</span><b class="text-[#1C3A6C]">100%</b></div>
+          </div>
+          <div class="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start"><div><span class="text-[11px] font-black uppercase text-emerald-700">Finalizadas</span><div class="text-2xl font-black text-emerald-700 mt-0.5" id="kFin">0</div></div><div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">✅</div></div>
+            <div class="mt-3 pt-2 border-t border-slate-100"><div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-1"><div id="bFin" class="bg-emerald-500 h-1.5" style="width:0%"></div></div><div class="flex justify-between text-[11px] font-bold text-slate-500"><span>Taxa de Resolução</span><span id="pFin" class="text-emerald-700">0%</span></div></div>
+          </div>
+          <div class="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start"><div><span class="text-[11px] font-black uppercase text-amber-700">C/ Pendência</span><div class="text-2xl font-black text-amber-600 mt-0.5" id="kPen">0</div></div><div class="p-2 bg-amber-50 text-amber-600 rounded-lg">⚠️</div></div>
+            <div class="mt-3 pt-2 border-t border-slate-100"><div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-1"><div id="bPen" class="bg-amber-500 h-1.5" style="width:0%"></div></div><div class="flex justify-between text-[11px] font-bold text-slate-500"><span>Exigem Retorno</span><span id="pPen" class="text-amber-700">0%</span></div></div>
+          </div>
+          <div class="bg-white p-4 rounded-2xl border border-orange-300/80 shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-1.5 h-full bg-[#EA5D0B]"></div>
+            <div class="flex justify-between items-start"><div><span class="text-[11px] font-black uppercase text-[#EA5D0B]">Em Aberto</span><div class="text-2xl font-black text-[#EA5D0B] mt-0.5" id="kAbe">0</div></div><div class="p-2 bg-orange-50 text-[#EA5D0B] rounded-lg">⏱️</div></div>
+            <div class="mt-3 pt-2 border-t border-slate-100"><div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-1"><div id="bAbe" class="bg-[#EA5D0B] h-1.5" style="width:0%"></div></div><div class="flex justify-between text-[11px] font-bold text-slate-500"><span>Aguardando</span><span id="pAbe" class="text-[#EA5D0B]">0%</span></div></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1"><h3 class="text-sm font-black text-slate-900">Evolução de Atendimentos</h3><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#1C3A6C]">Taxa Global</span></div>
+              <p class="text-[10px] text-slate-500 uppercase font-bold mb-3">Finalizadas vs Em Aberto</p>
+              <div class="relative h-48 flex justify-center items-center"><canvas id="gSt"></canvas><div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none"><span id="txMiolo" class="text-2xl font-black text-[#1C3A6C]">0%</span><span class="text-[9px] uppercase font-bold text-slate-400">Concluído</span></div></div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 grid grid-cols-3 gap-1 text-center">
+              <div class="p-1.5 rounded-lg bg-emerald-50"><span class="text-[10px] text-emerald-800 font-bold block">Finalizadas</span><b class="text-sm text-emerald-700" id="lbFin">0</b></div>
+              <div class="p-1.5 rounded-lg bg-amber-50"><span class="text-[10px] text-amber-800 font-bold block">Pendentes</span><b class="text-sm text-amber-700" id="lbPen">0</b></div>
+              <div class="p-1.5 rounded-lg bg-orange-50"><span class="text-[10px] text-orange-800 font-bold block">Abertas</span><b class="text-sm text-[#EA5D0B]" id="lbAbe">0</b></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1"><h3 class="text-sm font-black text-slate-900">Volume por Tipo</h3><span id="lbTotalCat" class="text-xs text-slate-500 font-bold">0 Tipos</span></div>
+              <p class="text-[10px] text-slate-500 uppercase font-bold mb-3">Distribuição no Período</p>
+              <div class="h-48 flex justify-center items-center"><canvas id="gTp"></canvas></div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <span class="text-slate-600 font-bold">🏆 Mais Frequente:</span><span class="font-black text-[#1C3A6C]" id="lbTopTp">-</span>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-300 shadow-sm flex flex-col">
+            <h3 class="text-sm font-black text-slate-900 mb-0.5">Produtividade por Atendente</h3>
+            <p class="text-[10px] text-slate-500 uppercase font-bold mb-3">Ordens e Clientes Atendidos</p>
+            <div id="lResp" class="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[250px]"></div>
+          </div>
+        </div>
+
+        <h3 class="text-xs font-black text-[#1C3A6C] mb-3 uppercase tracking-wider pl-1">Detalhamento Operacional</h3>
+        <div id="pTp" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5"></div>
+      </div>
+
+      <div id="os" class="tab-c">
+        <div class="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm mb-5 flex flex-col gap-3">
+          <div class="flex flex-col md:flex-row gap-2.5">
+            <div class="flex-1 relative">
+              <span class="absolute left-3.5 top-2.5 text-slate-400">🔍</span>
+              <input type="text" id="fBusca" oninput="resetPag()" placeholder="Busca instantânea por O.S., Cliente, Técnico, Relato ou Pendência..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[#EA5D0B]">
+            </div>
+            <button onclick="limparFiltros()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-black uppercase">Limpar</button>
+            <div class="flex gap-1 bg-slate-200 p-1 rounded-xl self-end md:self-auto">
+              <button onclick="vTipo('c')" id="bC" class="px-3 py-1 bg-white shadow rounded-lg font-black text-[#1C3A6C] text-xs">Cards</button>
+              <button onclick="vTipo('t')" id="bT" class="px-3 py-1 text-slate-600 rounded-lg font-bold text-xs">Tabela</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+            <select id="fFin" onchange="resetPag()" class="border border-slate-300 bg-slate-50 p-2 rounded-xl font-bold text-slate-800"><option value="">Situação (Todas)</option><option value="Finalizada">Finalizadas</option><option value="Finalizada com Pendência">Finalizadas com Pendência</option><option value="Aberta">Em Aberto</option></select>
+            <select id="fTp" onchange="resetPag()" class="border border-slate-300 bg-slate-50 p-2 rounded-xl font-bold text-slate-800"><option value="">Todos os Tipos</option></select>
+            <select id="fRe" onchange="resetPag()" class="border border-slate-300 bg-slate-50 p-2 rounded-xl font-bold text-slate-800"><option value="">Todos os Responsáveis</option></select>
+            <select id="fGrp" onchange="resetPag()" class="border border-slate-300 bg-slate-50 p-2 rounded-xl font-bold text-slate-800"><option value="">Todos os Grupos</option></select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap justify-between items-center mb-3 px-1 gap-2">
+          <div id="msgRes" class="text-sm font-black text-slate-700 uppercase"></div>
+          <div class="flex items-center gap-2 text-xs">
+            <select id="selItens" onchange="mudarLimite(this.value)" class="p-1 px-2.5 rounded-lg bg-white border border-slate-300 font-bold outline-none cursor-pointer">
+              <option value="24" selected>24 por pág</option><option value="50">50 por pág</option><option value="100">100 por pág</option><option value="999999">Todas</option>
+            </select>
+            <div id="pagCtls" class="flex items-center gap-1 font-bold"></div>
+          </div>
+        </div>
+
+        <div id="vC" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        <div id="vT" class="hidden bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="bg-slate-100 border-b border-slate-300 text-slate-700 font-black uppercase">
+                <tr><th class="p-3">Nº O.S.</th><th class="p-3">Data</th><th class="p-3">Cliente / Local</th><th class="p-3">Tipo</th><th class="p-3">Situação</th><th class="p-3">Atendente</th><th class="p-3">Relato</th><th class="p-3 text-center">Ação</th></tr>
+              </thead>
+              <tbody id="tbOS" class="divide-y divide-slate-200 text-slate-800 font-medium"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRIORIDADES & SLA -->
+      <div id="prio" class="tab-c bg-white p-6 rounded-2xl border border-slate-300 shadow-sm">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 pb-3 border-b border-slate-200">
+          <div>
+            <h2 class="font-black text-xl text-red-600">🚨 SLA de Atendimentos (> 2 dias)</h2>
+            <p class="text-xs text-slate-600 mt-0.5">Ordens <b>Em Aberto</b> há mais de 48 horas. Prioridade máxima para as Corretivas.</p>
+          </div>
+          <div id="badgeCountSLA" class="px-3 py-1 bg-red-100 text-red-800 border border-red-300 rounded-xl text-xs font-black">0 atrasadas</div>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-300">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 border-b border-slate-300 uppercase text-slate-700 font-black">
+              <tr><th class="p-3.5">O.S. / Cliente</th><th class="p-3.5">Tipo</th><th class="p-3.5">Responsável</th><th class="p-3.5">Tempo em Aberto</th><th class="p-3.5">Alerta</th><th class="p-3.5">Orientação</th></tr>
+            </thead>
+            <tbody id="tbPr" class="divide-y divide-slate-200 text-slate-800 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RELATÓRIO EXECUTIVO -->
+      <div id="rel" class="tab-c bg-white p-6 rounded-2xl border border-slate-300 shadow-sm max-w-4xl mx-auto">
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+          <div><h2 class="font-black text-xl text-[#1C3A6C]">Fechamento Operacional Diário</h2><p class="text-xs text-slate-500">Gere o relatório, valide reagendamentos e edite o texto final.</p></div>
+          <div class="flex gap-2">
+            <button onclick="gerarRelatorioAutomatico()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3.5 py-2 rounded-xl text-xs font-bold transition">🔄 Recarregar Base</button>
+            <button onclick="navigator.clipboard.writeText(q('txtRelEditavel').value);alert('Copiado!')" class="bg-[#1C3A6C] hover:bg-[#152B50] text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition">📋 Copiar Texto</button>
+          </div>
+        </div>
+        <div class="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3.5">
+          <h3 class="text-xs font-black text-orange-900 uppercase flex items-center gap-1.5 mb-1.5"><span>📅</span> Reagendamentos Identificados no Período:</h3>
+          <div id="boxReagendamentos" class="text-xs text-orange-950 font-medium space-y-1"></div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="flex justify-between items-center text-xs text-slate-500 font-semibold px-1">
+            <span>Área de Redação Executiva (Editável):</span><span id="saveStatus" class="text-emerald-700 font-bold hidden">💾 Salvo auto</span>
+          </div>
+          <textarea id="txtRelEditavel" oninput="salvarTextoRelatorio()" rows="16" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-300 font-mono text-sm leading-relaxed text-slate-800 focus:ring-2 focus:ring-[#EA5D0B] outline-none shadow-inner resize-y"></textarea>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalOS" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex justify-between items-start pb-3 border-b border-slate-200">
+        <div><span id="mOSNum" class="text-xs font-black uppercase px-2 py-0.5 rounded bg-[#1C3A6C] text-white">#0</span><h3 id="mOSCli" class="text-lg font-black text-slate-900 mt-1.5">-</h3><p id="mOSTech" class="text-sm text-slate-600 font-semibold mt-0.5">-</p></div>
+        <button onclick="q('modalOS').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-3xl font-bold leading-none">×</button>
+      </div>
+      <div class="py-3.5 space-y-3.5 max-h-[60vh] overflow-y-auto text-sm">
+        <div class="flex flex-wrap gap-2"><span id="mOSSit" class="px-2.5 py-1 rounded font-bold uppercase border text-xs">-</span><span id="mOSTp" class="px-2.5 py-1 rounded font-bold bg-slate-100 text-slate-700 text-xs">-</span><span id="mOSData" class="px-2.5 py-1 rounded font-bold bg-slate-100 text-slate-700 text-xs">-</span></div>
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200"><strong class="text-[#1C3A6C] uppercase block mb-1 text-xs font-black">🎯 Orientação / Tarefa:</strong><p id="mOSOri" class="text-slate-800 leading-relaxed whitespace-pre-line text-sm"></p></div>
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200"><strong class="text-slate-600 uppercase block mb-1 text-xs font-black">📝 Relato Técnico:</strong><p id="mOSRel" class="text-slate-800 leading-relaxed whitespace-pre-line text-sm"></p></div>
+        <div id="bModPen" class="bg-amber-50 p-3 rounded-xl border border-amber-200 hidden"><strong class="text-amber-800 uppercase block mb-1 text-xs font-black">⚠️ Pendência:</strong><p id="mOSPen" class="text-amber-900 font-bold leading-relaxed whitespace-pre-line text-sm"></p></div>
+      </div>
+      <div class="pt-3 border-t border-slate-200 text-right"><button onclick="q('modalOS').classList.add('hidden')" class="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs">Fechar</button></div>
+    </div>
+  </div>
+
+  <script>
+    const CHV = 'dash_os_final_auvo', CHV_REL = 'dash_os_relatorio_custom';
+    let ds = { dt: "", ats: [] }, dF = [], ch = {}, pag = 1, lim = 24, modoDt = 'todas', dtCust = '';
+    const q = i => document.getElementById(i);
+    const clean = s => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+    function fmtDataExcel(v) {
+      if (!v) return "";
+      if (v instanceof Date) return `${String(v.getDate()).padStart(2,'0')}/${String(v.getMonth()+1).padStart(2,'0')}/${v.getFullYear()}`;
+      if (!isNaN(v) && String(v).trim() !== '' && Number(v) > 30000 && Number(v) < 65000) {
+        const d = new Date(Math.round((Number(v) - 25569) * 86400 * 1000));
+        return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+      }
+      return String(v).trim();
+    }
+
+    function dtISO(s) {
+      if (!s || s === "-") return "";
+      const mBR = String(s).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (mBR) return `${mBR[3]}-${mBR[2].padStart(2, '0')}-${mBR[1].padStart(2, '0')}`;
+      const mISO = String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (mISO) return `${mISO[1]}-${mISO[2].padStart(2, '0')}-${mISO[3].padStart(2, '0')}`;
+      return "";
+    }
+
+    function getHojeISO(off = 0) {
+      const d = new Date(); if (off) d.setDate(d.getDate() + off);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function calcAtraso(dtStr) {
+      const dIso = dtISO(dtStr); if (!dIso) return 0;
+      const p = dIso.split('-');
+      const dAb = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+      const hj = new Date(); hj.setHours(0,0,0,0);
+      const diff = Math.floor((hj - dAb) / (1000 * 60 * 60 * 24));
+      return diff > 0 ? diff : 0;
+    }
+
+    function isReagendado(o) {
+      const t = clean(`${o.rel} ${o.ori} ${o.pe}`);
+      return t.includes('reagend')||t.includes('remarc')||t.includes('reprogram')||t.includes('adiad')||t.includes('voltar');
+    }
+
+    function getVal(row, targets, excl = []) {
+      const keys = Object.keys(row);
+      for (const t of targets) {
+        const k = keys.find(k => { const kc = clean(k); return (kc === clean(t) || kc.includes(clean(t))) && !excl.some(e => kc.includes(clean(e))); });
+        if (k && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") return row[k];
+      }
+      return "";
+    }
+
+    function classificarSit(fin, rel, ori, pen) {
+      const f = clean(fin), r = clean(rel) + " " + clean(ori);
+      const temP = (pen && clean(pen).length > 0) || r.includes("pendenc") || r.includes("falta") || r.includes("aguardando") || r.includes("reagend");
+      if (!f || f === "0" || f === "false" || f === "n" || f.includes("nao") || f.includes("abert")) return "Aberta";
+      const isFin = f === "sim" || f === "s" || f === "ok" || f === "1" || f === "true" || f.includes("finaliz") || f.includes("conclu");
+      return !isFin ? "Aberta" : (temP ? "Finalizada com Pendência" : "Finalizada");
+    }
+
+    function reclassificar() {
+      if (ds && ds.ats) ds.ats.forEach(o => o.sit = (o.sit === "Não Finalizada" || clean(o.sit).includes("nao") || clean(o.fin).includes("nao")) ? "Aberta" : classificarSit(o.fin, o.rel, o.ori, o.pe));
+    }
+
+    function getDadosFiltrados() {
+      if (!ds || !ds.ats) return [];
+      if (modoDt === 'todas') return ds.ats;
+      const hj = getHojeISO(), ont = getHojeISO(-1), mAtual = hj.substring(0, 7);
+      return ds.ats.filter(o => {
+        const d = dtISO(o.dt), isPrev = clean(o.tp).includes('preventiv');
+        if (modoDt === 'mes') return (d && d.startsWith(mAtual)) || isPrev;
+        if (modoDt === 'hoje') return d === hj;
+        if (modoDt === 'ontem') return d === ont;
+        if (modoDt === '7dias') return d >= getHojeISO(-7) && d <= hj;
+        if (modoDt === 'custom') return d === dtCust;
+        return true;
+      });
+    }
+
+    function setData(m, btn) {
+      modoDt = m; dtCust = ''; q('dtCustom').value = '';
+      document.querySelectorAll('.b-dt').forEach(b => b.className = "b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition");
+      if (btn) btn.className = "b-dt px-3 py-1 rounded-xl text-xs font-black bg-[#1C3A6C] text-white transition";
+      recalc();
+    }
+    function setDataCustom(val) {
+      if (!val) return; modoDt = 'custom'; dtCust = val;
+      document.querySelectorAll('.b-dt').forEach(b => b.className = "b-dt px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition");
+      recalc();
+    }
+    function recalc() {
+      pag = 1; const bData = getDadosFiltrados();
+      const nms = { 'todas': 'Todas', 'hoje': 'Hoje', 'ontem': 'Ontem', '7dias': 'Últimos 7 dias', 'mes': 'Mês Atual', 'custom': dtCust.split('-').reverse().join('/') };
+      q('lbPeriodo').innerText = `Período: ${nms[modoDt] || 'Selecionado'}`;
+      filt(); buildDsh(bData);
+    }
+
+    function load() {
+      if (typeof window.BANCO_DE_DADOS !== 'undefined' && window.BANCO_DE_DADOS && window.BANCO_DE_DADOS.ats && window.BANCO_DE_DADOS.ats.length) {
+        ds = window.BANCO_DE_DADOS; reclassificar();
+        q('selData').innerHTML = `<option value="Rede" selected>${ds.dt || "Dados Atualizados"}</option>`;
+      } else {
+        let h = {}; try { h = JSON.parse(localStorage.getItem(CHV) || "{}"); } catch(e) {}
+        if (!Object.keys(h).length) h["Sem Dados"] = { dt: "Sem Dados", ats: [] };
+        let ud = Object.keys(h).pop(); ds = h[ud]; reclassificar();
+        q('selData').innerHTML = Object.keys(h).reverse().map(d => `<option value="${d}" ${d===ud?'selected':''}>${d}</option>`).join('');
+      }
+      att();
+      const rascunho = localStorage.getItem(CHV_REL);
+      if(rascunho) q('txtRelEditavel').value = rascunho;
+    }
+
+    function impExc(e) {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        try {
+          const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' }), ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          let hIdx = -1;
+          for (let i = 0; i < Math.min(30, rows.length); i++) {
+            if (Array.isArray(rows[i])) {
+              const str = rows[i].map(clean).join(" ");
+              if (str.includes("codigo") && (str.includes("cliente") || str.includes("tarefa"))) { hIdx = i; break; }
+            }
+          }
+          const raw = XLSX.utils.sheet_to_json(ws, { range: hIdx >= 0 ? hIdx : 0, defval: "" });
+          const ats = raw.map(row => {
+            const cod = String(getVal(row, ['codigo', 'os', 'numero'], ['externo', 'responsavel']) || 'S/N');
+            const fin = String(getVal(row, ['finalizada', 'status', 'situacao']) || '');
+            const rel = String(getVal(row, ['relato', 'tratativa', 'observacao', 'solucao']) || '');
+            const ori = String(getVal(row, ['orientacao', 'descricao', 'tarefa', 'servico']) || '');
+            const pen = String(getVal(row, ['pendencias', 'pendencia']) || '');
+            const sit = classificarSit(fin, rel, ori, pen);
+            const dtFinal = fmtDataExcel(getVal(row, ['data cadastro tarefa', 'cadastro tarefa', 'data cadastro'])) || fmtDataExcel(getVal(row, ['data da tarefa', 'data tarefa', 'data abertura', 'data conclusao', 'data'])) || "-";
+            const tp = String(getVal(row, ['tipo da tarefa', 'tipo tarefa', 'tipo']) || 'Não informado');
+            const resp = String(getVal(row, ['responsavel'], ['codigo', 'equipe', 'externo']) || getVal(row, ['tecnico', 'atendente']) || 'Não informado');
+            const cli = String(getVal(row, ['cliente'], ['grupo', 'codigo']) || 'Não informado');
+            const grp = String(getVal(row, ['grupo do cliente', 'grupo']) || '-');
+            return { os: cod, dt: dtFinal, tp: tp, te: resp, cl: cli, grp: grp, ori: ori, fin: fin, rel: rel, pe: pen, sit: sit };
+          });
+          const dSalva = new Date().toLocaleDateString('pt-BR') + " às " + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          ds = { dt: dSalva, ats: ats };
+          q('selData').innerHTML = `<option value="${dSalva}" selected>${dSalva}</option>`;
+          try { let h = {}; h[dSalva] = ds; localStorage.setItem(CHV, JSON.stringify(h)); } catch(err) {}
+          alert(`Sucesso! ${ats.length} ordens processadas.`); att(); e.target.value = "";
+        } catch(err) { alert("Erro ao ler a planilha."); }
+      }; r.readAsArrayBuffer(f);
+    }
+
+    function gerarJSON() {
+      if (!ds.ats || !ds.ats.length) return alert("Sem dados.");
+      const blob = new Blob(["var BANCO_DE_DADOS = " + JSON.stringify(ds, null, 2) + ";\nif(typeof window !== 'undefined'){ window.BANCO_DE_DADOS = BANCO_DE_DADOS; }"], { type: "application/javascript" });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "banco_dados.js";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); alert("Ficheiro 'banco_dados.js' gerado com sucesso!");
+    }
+
+    function tab(id, e) {
+      document.querySelectorAll('.tab-c').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tbtn').forEach(el => el.className = "tbtn flex-1 py-2.5 px-4 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl");
+      e.className = "tbtn flex-1 py-2.5 px-4 text-sm font-black text-[#1C3A6C] bg-white shadow-sm rounded-xl border-b-2 border-[#EA5D0B]";
+      q(id).classList.add('active');
+    }
+
+    function vTipo(t) {
+      q('vC').style.display = t === 'c' ? 'grid' : 'none'; q('vT').style.display = t === 'c' ? 'none' : 'block';
+      q('bC').className = t === 'c' ? "px-3 py-1 bg-white shadow rounded-lg font-black text-[#1C3A6C] text-xs" : "px-3 py-1 text-slate-600 rounded-lg font-bold text-xs";
+      q('bT').className = t === 't' ? "px-3 py-1 bg-white shadow rounded-lg font-black text-[#1C3A6C] text-xs" : "px-3 py-1 text-slate-600 rounded-lg font-bold text-xs";
+    }
+
+    function resetPag() { pag = 1; filt(); }
+    function mudarLimite(v) { lim = parseInt(v); pag = 1; filt(); }
+    function limparFiltros() { ['fFin','fTp','fRe','fGrp','fBusca'].forEach(i => q(i).value = ''); resetPag(); }
+    function mudarData(d) { let h = JSON.parse(localStorage.getItem(CHV)||"{}"); if (h[d]) { ds = h[d]; reclassificar(); att(); } }
+
+    function att() {
+      const opts = (k, e) => q(e).innerHTML = `<option value="">Todos</option>` + [...new Set(ds.ats.map(o => o[k]))].filter(Boolean).sort().map(v => `<option value="${v}">${v}</option>`).join('');
+      opts('tp', 'fTp'); opts('te', 'fRe'); opts('grp', 'fGrp'); recalc();
+    }
+
+    function filt() {
+      const fin = q('fFin').value, tp = q('fTp').value, re = q('fRe').value, grp = q('fGrp').value, bsc = clean(q('fBusca').value), bData = getDadosFiltrados();
+      dF = bData.filter(o => (!fin || o.sit === fin) && (!tp || o.tp === tp) && (!re || o.te === re) && (!grp || o.grp === grp) && (!bsc || clean(`${o.os} ${o.cl} ${o.te} ${o.tp} ${o.grp} ${o.ori} ${o.rel} ${o.pe}`).includes(bsc)));
+      const tot = dF.length, pTot = Math.ceil(tot / lim) || 1;
+      if (pag > pTot) pag = pTot; const ini = (pag - 1) * lim, slice = dF.slice(ini, ini + lim);
+      q('msgRes').innerHTML = `Exibindo <b>${tot ? ini + 1 : 0}-${Math.min(ini + lim, tot)}</b> de <b>${tot}</b> ordens <span class="text-slate-400 font-normal">(${bData.length} no período)</span>`;
+      q('pagCtls').innerHTML = lim >= 999999 || pTot <= 1 ? `<span class="text-slate-400">Todas</span>` : `<button onclick="pag--;filt()" ${pag<=1?'disabled':''} class="p-1 px-2.5 rounded bg-white border">◀</button><span class="px-1.5 text-slate-700"><b>${pag}</b>/<b>${pTot}</b></span><button onclick="pag++;filt()" ${pag>=pTot?'disabled':''} class="p-1 px-2.5 rounded bg-white border">▶</button>`;
+
+      q('vC').innerHTML = slice.length ? slice.map(o => {
+        const cSit = o.sit === "Finalizada" ? "bg-emerald-50 text-emerald-800 border-emerald-300" : (o.sit === "Finalizada com Pendência" ? "bg-amber-50 text-amber-900 border-amber-300" : "bg-orange-50 text-[#EA5D0B] border-orange-300");
+        const bEsp = o.sit === "Aberta" ? "border-l-4 border-l-[#EA5D0B]" : (o.sit === "Finalizada com Pendência" ? "border-l-4 border-l-amber-500" : "border-l-4 border-l-emerald-500");
+        return `
+        <div onclick="abrirModal(${ds.ats.indexOf(o)})" class="bg-white rounded-2xl p-5 border border-slate-300 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-[#EA5D0B] transition cursor-pointer ${bEsp}">
+          <div>
+            <div class="flex justify-between items-start gap-2.5 mb-2.5"><h3 class="font-black text-slate-900 text-base leading-snug"><span class="text-white bg-[#1C3A6C] px-2 py-0.5 rounded text-xs mr-1 font-black">#${o.os}</span> ${o.cl}</h3><span class="text-xs uppercase font-black px-2.5 py-1 rounded border whitespace-nowrap ${cSit}">${o.sit}</span></div>
+            <div class="text-sm text-slate-600 mb-3 font-medium">Técnico: <b class="text-slate-900">${o.te}</b> • Tipo: <b class="text-slate-900">${o.tp}</b></div>
+            <div class="mb-2 bg-slate-50 p-3 rounded-xl border border-slate-200"><p class="text-sm text-slate-800 clamp-2 font-normal">${o.rel || (o.sit === "Aberta" ? "<em class='text-[#EA5D0B] font-semibold'>Aguardando execução.</em>" : "Sem relato.")}</p></div>
+            ${o.pe ? `<div class="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-sm font-bold text-amber-950 truncate">⚠️ ${o.pe}</div>` : ''}
+          </div>
+          <div class="pt-3 border-t border-slate-100 mt-3 flex justify-between items-center text-xs text-slate-600 font-semibold"><span>🗓️ ${o.dt}</span><span class="text-[#1C3A6C] font-black uppercase">Ver Detalhes ➔</span></div>
+        </div>`;
+      }).join('') : `<div class="col-span-full bg-white p-6 rounded-2xl border text-center text-slate-500 font-bold">Nenhuma ordem encontrada.</div>`;
+
+      q('tbOS').innerHTML = slice.map(o => `
+        <tr class="hover:bg-slate-50 border-b transition">
+          <td class="p-3 font-black text-[#1C3A6C]">#${o.os}</td><td class="p-3 text-slate-500">${o.dt}</td><td class="p-3 font-bold">${o.cl}</td>
+          <td class="p-3">${o.tp}</td><td class="p-3"><span class="px-2 py-0.5 rounded border font-bold text-[10px] ${o.sit==='Finalizada'?'bg-emerald-50 text-emerald-800':(o.sit==='Finalizada com Pendência'?'bg-amber-50 text-amber-800':'bg-orange-50 text-[#EA5D0B]')}">${o.sit}</span></td>
+          <td class="p-3 font-bold">${o.te}</td><td class="p-3 max-w-xs truncate">${o.rel || o.ori || '-'}</td>
+          <td class="p-3 text-center"><button onclick="abrirModal(${ds.ats.indexOf(o)})" class="p-1 px-2 bg-slate-100 hover:bg-[#1C3A6C] hover:text-white rounded border font-bold text-[10px]">Abrir</button></td>
+        </tr>`).join('');
+
+      // SLA
+      const abdSLA = bData.filter(o => o.sit === "Aberta" && calcAtraso(o.dt) >= 2).sort((a,b) => calcAtraso(b.dt) - calcAtraso(a.dt));
+      q('badgeCountSLA').innerText = `${abdSLA.length} ordens atrasadas`;
+      q('tbPr').innerHTML = abdSLA.length ? abdSLA.map(o => {
+        const isC = clean(o.tp).includes('corretiva'), d = calcAtraso(o.dt);
+        const aHtml = isC ? `<span class="bg-red-100 text-red-800 border border-red-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">🚨 SLA ESTOURADA (${d}d)</span>` : `<span class="bg-orange-100 text-orange-800 border border-orange-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">⚠️ Atraso (${d}d)</span>`;
+        return `
+        <tr onclick="abrirModal(${ds.ats.indexOf(o)})" class="hover:bg-slate-50 border-b border-slate-200 cursor-pointer transition ${isC?'border-l-4 border-l-red-500':'border-l-4 border-l-orange-400'}">
+          <td class="p-3.5"><b class="text-[#1C3A6C] text-sm">#${o.os}</b><span class="font-bold block text-sm">${o.cl}</span><span class="text-[11px] text-slate-500 mt-1 block">Abertura: ${o.dt}</span></td>
+          <td class="p-3.5 font-bold text-slate-800">${o.tp}</td><td class="p-3.5 font-bold">${o.te}</td><td class="p-3.5 font-black text-slate-700">${d} dias</td><td class="p-3.5">${aHtml}</td>
+          <td class="p-3.5"><div class="text-slate-700 text-xs clamp-2">${o.ori || 'Sem orientação'}</div></td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="6" class="p-6 text-center text-emerald-600 font-bold">Excelente! 🎉 Nenhuma O.S. está com SLA de atendimento atrasada (mais de 2 dias).</td></tr>`;
+      
+      const rgd = bData.filter(o => isReagendado(o));
+      q('boxReagendamentos').innerHTML = rgd.length ? rgd.map(o => `<div class="truncate">👉 <b>[#${o.os}]</b> ${o.cl} <span class="text-slate-500">(${o.te})</span></div>`).join('') : '<div class="text-slate-500">Nenhum reagendamento detectado no período.</div>';
+    }
+
+    function abrirModal(idx) {
+      const o = ds.ats[idx]; if (!o) return;
+      q('mOSNum').innerText = `#${o.os}`; q('mOSCli').innerText = o.cl; q('mOSTech').innerText = `Atendente: ${o.te} | Grupo: ${o.grp}`;
+      q('mOSTp').innerText = `Tipo: ${o.tp}`; q('mOSData').innerText = `Data: ${o.dt}`; q('mOSSit').innerText = o.sit;
+      q('mOSSit').className = `px-2.5 py-1 rounded font-bold uppercase text-xs border ${o.sit==='Finalizada'?'bg-emerald-50 text-emerald-800 border-emerald-300':(o.sit==='Finalizada com Pendência'?'bg-amber-50 text-amber-800 border-amber-300':'bg-orange-50 text-[#EA5D0B border-orange-300]')}`;
+      q('mOSOri').innerText = o.ori || "Sem orientação cadastrada."; q('mOSRel').innerText = o.rel || "Sem relato registrado.";
+      const bP = q('bModPen'); if (o.pe) { bP.classList.remove('hidden'); q('mOSPen').innerText = o.pe; } else bP.classList.add('hidden');
+      q('modalOS').classList.remove('hidden');
+    }
+
+    window.onclick = e => { if (e.target === q('modalOS')) q('modalOS').classList.add('hidden'); };
+
+    function buildDsh(bData) {
+      if (!bData.length) {
+        q('pTp').innerHTML = '<div class="text-slate-400 text-xs font-bold col-span-full text-center py-6">Nenhuma ordem no período.</div>';
+        q('kTot').innerText = 0; q('kFin').innerText = 0; q('kPen').innerText = 0; q('kAbe').innerText = 0; q('txMiolo').innerText = '0%';
+        if (ch.s) ch.s.destroy(); if (ch.t) ch.t.destroy(); return;
+      }
+      let tG = {}; bData.forEach(o => {
+        if (!tG[o.tp]) tG[o.tp] = { total: 0, fin: 0, pen: 0, abe: 0 }; tG[o.tp].total++;
+        if (o.sit === "Finalizada") tG[o.tp].fin++; else if (o.sit === "Finalizada com Pendência") tG[o.tp].pen++; else tG[o.tp].abe++;
+      });
+      const ord = Object.entries(tG).sort((a,b) => b[1].total - a[1].total);
+      q('pTp').innerHTML = ord.map(([t, d]) => `
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-sm flex flex-col justify-between border-t-4 border-t-[#1C3A6C]">
+          <div><div class="text-2xl font-black text-slate-900">${d.total}</div><div class="text-xs uppercase font-black text-slate-500 mb-2 truncate">${t}</div></div>
+          <div class="space-y-0.5 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            <div class="flex justify-between text-emerald-700"><span>Finalizadas:</span><b>${d.fin}</b></div>
+            <div class="flex justify-between text-amber-700"><span>C/ Pendência:</span><b>${d.pen}</b></div>
+            <div class="flex justify-between text-[#EA5D0B]"><span>Em Aberto:</span><b>${d.abe}</b></div>
+          </div>
+        </div>`).join('');
+      let tot = bData.length, fin = bData.filter(o=>o.sit==="Finalizada").length, pen = bData.filter(o=>o.sit==="Finalizada com Pendência").length, abe = bData.filter(o=>o.sit==="Aberta").length;
+      let pF = tot ? Math.round((fin/tot)*100) : 0, pP = tot ? Math.round((pen/tot)*100) : 0, pA = tot ? Math.round((abe/tot)*100) : 0, pRes = tot ? Math.round(((fin+pen)/tot)*100) : 0;
+      q('kTot').innerText = tot; q('kFin').innerText = fin; q('pFin').innerText = `${pF}%`; q('bFin').style.width = `${pF}%`;
+      q('kPen').innerText = pen; q('pPen').innerText = `${pP}%`; q('bPen').style.width = `${pP}%`;
+      q('kAbe').innerText = abe; q('pAbe').innerText = `${pA}%`; q('bAbe').style.width = `${pA}%`;
+      q('txMiolo').innerText = `${pRes}%`; q('lbFin').innerText = fin; q('lbPen').innerText = pen; q('lbAbe').innerText = abe;
+      q('lbTotalCat').innerText = `${ord.length} Categorias`;
+      if (ord.length) q('lbTopTp').innerText = `${ord[0][0]} (${ord[0][1].total} O.S.)`;
+
+      let rG = {}; bData.forEach(o => { const t = o.te || "N/A"; if (!rG[t]) rG[t] = { tot: 0, cli: new Set() }; rG[t].tot++; rG[t].cli.add(o.cl); });
+      q('lResp').innerHTML = Object.entries(rG).sort((a,b)=>b[1].tot - a[1].tot).map(([t, d]) => `
+        <div class="flex justify-between items-center text-xs border-b border-slate-100 pb-1.5 hover:bg-slate-50 px-1 rounded">
+          <span class="font-bold text-slate-800 truncate pr-2">${t}</span>
+          <div class="text-right whitespace-nowrap"><b class="text-[#1C3A6C] text-sm">${d.tot}</b> <span class="text-[10px] text-slate-400 uppercase">(${d.cli.size} cli)</span></div>
+        </div>`).join('');
+
+      if (ch.s) ch.s.destroy(); if (ch.t) ch.t.destroy();
+      ch.s = new Chart(q('gSt').getContext('2d'), { type: 'doughnut', data: { labels: ['Finalizadas', 'C/ Pendência', 'Em Aberto'], datasets: [{ data: [fin, pen, abe], backgroundColor: ['#10b981', '#f59e0b', '#EA5D0B'], borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '76%', plugins: { legend: { display: false } } } });
+      ch.t = new Chart(q('gTp').getContext('2d'), { type: 'bar', data: { labels: ord.map(e => e[0]), datasets: [{ data: ord.map(e => e[1].total), backgroundColor: '#1C3A6C', borderRadius: 4, hoverBackgroundColor: '#EA5D0B' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 9, weight: 'bold' } } }, y: { beginAtZero: true, border: {display: false} } } } });
+    }
+
+    function gerarRelatorioAutomatico() {
+      const bD = getDadosFiltrados();
+      let tot = bD.length, fin = bD.filter(o=>o.sit==="Finalizada").length, pen = bD.filter(o=>o.sit==="Finalizada com Pendência").length, abe = bD.filter(o=>o.sit==="Aberta").length;
+      let r = `FECHAMENTO TÉCNICO OPERACIONAL — GRUPO ALPHA SECURE\nPeríodo: ${modoDt.toUpperCase()} | Base: ${ds.dt}\n==================================================\n\n`;
+      r += `📊 RESUMO GERAL:\n• Total O.S.: ${tot}\n• Finalizadas: ${fin} (${tot ? Math.round((fin/tot)*100) : 0}%)\n• Finalizadas c/ Pendência: ${pen}\n• Em Aberto: ${abe}\n\n`;
+      
+      const abSLA = bD.filter(o => o.sit === "Aberta" && calcAtraso(o.dt) >= 2);
+      r += `--------------------------------------------------\n🚨 ALERTA SLA: ${abSLA.length} ORDENS ATRASADAS (>2 DIAS)\n`;
+      if(!abSLA.length) r += `Nenhuma O.S. estourou o prazo de atendimento.\n`;
+      else abSLA.sort((a,b) => calcAtraso(b.dt) - calcAtraso(a.dt)).forEach(o => r += `• [#${o.os}] ${o.cl} (${o.tp})\n  Tempo em aberto: ${calcAtraso(o.dt)} dias | Téc: ${o.te}\n`);
+
+      const rgd = bD.filter(o => isReagendado(o));
+      r += `\n--------------------------------------------------\n📅 REAGENDAMENTOS DETECTADOS: ${rgd.length}\n`;
+      if(!rgd.length) r += `Nenhum reagendamento detectado no período.\n`;
+      else rgd.forEach(o => r += `• [#${o.os}] ${o.cl} (Téc: ${o.te})\n`);
+
+      r += `\n==================================================\n📝 OBSERVAÇÕES E APONTAMENTOS DA GESTÃO:\n(Digite aqui o seu texto final de alinhamento com a diretoria...)`;
+      q('txtRelEditavel').value = r; salvarTextoRelatorio();
+    }
+
+    function salvarTextoRelatorio() {
+      localStorage.setItem(CHV_REL, q('txtRelEditavel').value);
+      const sL = q('saveStatus'); sL.classList.remove('hidden'); setTimeout(() => sL.classList.add('hidden'), 2500);
+    }
+    window.onload = load;
+  </script>
+</body>
+</html>
